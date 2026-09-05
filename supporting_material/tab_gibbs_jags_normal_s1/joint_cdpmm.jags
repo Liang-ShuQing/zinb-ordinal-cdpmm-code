@@ -1,0 +1,75 @@
+# Joint ZINB + ordinal + truncated stick-breaking CDPMM in JAGS.
+# No Pólya–Gamma: generic BUGS-style MCMC with explicit cluster labels L[i].
+# Links match paper: logit ZI, logit NB mean, cumulative logit ordinal.
+# Post-process recenter of mu and Sigma in R (same formula as Stan/Gibbs).
+
+model {
+  # ---- stick-breaking weights ----
+  tau ~ dgamma(tau_a1, tau_a2)
+  transprod[1] <- 1
+  for (g in 1:(G - 1)) {
+    nu[g] ~ dbeta(1, tau)
+    pi[g] <- nu[g] * transprod[g]
+    transprod[g + 1] <- transprod[g] * (1 - nu[g])
+  }
+  pi[G] <- transprod[G]
+
+  # ---- cluster atoms (mu_star uncentered; Omega via Wishart precision) ----
+  for (g in 1:G) {
+    for (k in 1:3) {
+      mu_star[g, k] ~ dnorm(0, 0.25)
+    }
+    Tau[g, 1:3, 1:3] ~ dwish(R[1:3, 1:3], wish_df)
+  }
+
+  # ---- subject RE + labels ----
+  for (i in 1:N) {
+    L[i] ~ dcat(pi[1:G])
+    b[i, 1:3] ~ dmnorm(mu_star[L[i], 1:3], Tau[L[i], 1:3, 1:3])
+  }
+
+  # ---- fixed effects ----
+  for (j in 1:pz) {
+    alpha[j] ~ dnorm(0, 0.001)
+  }
+  for (j in 1:pc) {
+    beta[j] ~ dnorm(0, 0.001)
+  }
+  for (j in 1:po) {
+    gamma[j] ~ dnorm(0, 0.001)
+  }
+  r ~ dgamma(0.01, 0.01)
+
+  # ordinal cutpoints: delta[1]=0, then increasing
+  delta[1] <- 0
+  delta_raw[1] ~ dnorm(0, 0.25)T(0,)
+  delta[2] <- delta_raw[1]
+  for (c in 2:(C - 2)) {
+    delta_raw[c] ~ dnorm(0, 0.25)T(0,)
+    delta[c + 1] <- delta[c] + delta_raw[c]
+  }
+
+  # ---- observation loop ----
+  for (n in 1:Ntot) {
+    # ZINB
+    logit(pi_at[n]) <- inprod(Xz[n, 1:pz], alpha[1:pz]) + b[id[n], 1]
+    logit(phi[n]) <- inprod(Xc[n, 1:pc], beta[1:pc]) + b[id[n], 2]
+    mu_nb[n] <- r * phi[n] / (1 - phi[n] + 1.0E-8)
+    at[n] ~ dbern(pi_at[n])
+    mu_use[n] <- at[n] * mu_nb[n] + (1 - at[n]) * 1.0E-6
+    p_nb[n] <- r / (r + mu_use[n])
+    y1[n] ~ dnegbin(p_nb[n], r)
+
+    # cumulative logit ordinal
+    eta_o[n] <- inprod(Xo[n, 1:po], gamma[1:po]) + b[id[n], 3]
+    for (c in 1:(C - 1)) {
+      logit(cdf_o[n, c]) <- delta[c] - eta_o[n]
+    }
+    p_o[n, 1] <- cdf_o[n, 1]
+    for (c in 2:(C - 1)) {
+      p_o[n, c] <- cdf_o[n, c] - cdf_o[n, c - 1]
+    }
+    p_o[n, C] <- 1 - cdf_o[n, C - 1]
+    y2[n] ~ dcat(p_o[n, 1:C])
+  }
+}

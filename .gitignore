@@ -1,0 +1,8 @@
+﻿*.rds
+*.RData
+*.csv
+!**/README.md
+.Rhistory
+.Rproj.user/
+*.pdf
+!fig_graphical_model/*.pdf
