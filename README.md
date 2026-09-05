@@ -1,8 +1,10 @@
 # Code by paper figure / table
 
+**Repository:** https://github.com/Liang-ShuQing/zinb-ordinal-cdpmm-code
+
 Companion code for the manuscript **Bayesian Semiparametric Joint Modeling of Longitudinal Zero-Inflated Count and Ordinal Outcomes** (ZINB–cumulative logit joint model with CDPMM random effects).
 
-This package is organized **one folder per figure or table** so items can be uploaded to GitHub separately.
+This package is organized **one folder per figure or table**.
 
 ## What is included
 
