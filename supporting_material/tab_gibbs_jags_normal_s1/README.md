@@ -30,5 +30,3 @@ Rscript code_jags.R .
 # Gibbs column usually taken from the main simulation (prog1) outputs
 Rscript build_gibbs_jags_tables.R
 ```
-
-**Note:** Stan cells for Scenario 2, \(N=400\) may still be incomplete in the manuscript tables (`---`).
