@@ -10,5 +10,3 @@ Gibbs | JAGS | Stan comparison; **mixture** RE; Scenario **2**; \(N\in\{200,400\
 ## Settings
 
 `SCENARIO=2`, `RE_DIST=mixture`, \(S=500\), scheme 1.
-
-Stan \(N=400\) cells may still show `---` until completed.

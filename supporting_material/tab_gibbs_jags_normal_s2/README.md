@@ -10,5 +10,3 @@ Gibbs | JAGS | Stan comparison; **normal** RE; Scenario **2**; \(N\in\{200,400\}
 ## Settings
 
 `SCENARIO=2`, `RE_DIST=normal`, \(S=500\), scheme 1 MCMC lengths.
-
-Stan \(N=400\) cells may still show `---` until completed.

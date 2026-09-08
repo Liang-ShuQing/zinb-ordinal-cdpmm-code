@@ -63,6 +63,4 @@ On Linux HPC prefer **fork** `registerDoParallel(cores = …)` (avoid PSOCK at h
 
 Shared cores for CDPMM vs Gauss / Gibbs–JAGS–Stan sit in the `*_normal_s1` folders and in `00_shared/`; sibling table folders point there via their README.
 
-## Note on SM Stan \(N=400\), Scenario 2
-
-The Supporting Material Gibbs | JAGS | Stan tables may still show `---` for Stan under Scenario 2, \(N=400\) until those Monte Carlo cells are completed and the LaTeX tables rebuilt. Do not treat placeholders as numerical results.
+All eight Gibbs | JAGS | Stan Monte Carlo cells (\(N\in\{200,400\}\), Scenarios 1–2, normal and mixture) are complete; rebuild LaTeX tables with `build_gibbs_jags_tables.R` after regenerating summaries.
