@@ -6,6 +6,30 @@ Companion code for the manuscript **Bayesian Semiparametric Joint Modeling of Lo
 
 This package is organized **one folder per figure or table**.
 
+## R package: zinbcdpmm
+
+Reusable R package for the joint ZINB–ordinal model with CDPMM random effects (Gibbs sampler). Public API: `simulate_zinb_ordinal()`, `fit_zinb_ordinal()`, plus `print` / `summary` methods.
+
+**Install**
+
+```r
+# install.packages("remotes")
+remotes::install_github("Liang-ShuQing/zinb-ordinal-cdpmm-code", subdir = "zinbcdpmm")
+```
+
+**Minimal usage** (short chains for a quick demo)
+
+```r
+library(zinbcdpmm)
+set.seed(1)
+dat <- simulate_zinb_ordinal(n = 30, nis = 4, scenario = 2, re_dist = "normal")
+fit <- fit_zinb_ordinal(dat, chain = 200, burn = 100, thin = 5, G = 4)
+print(fit)
+summary(fit)
+```
+
+The figure/table folders below remain for paper replication; `zinbcdpmm/` is the reusable fitting interface. Separate ZINB/ordinal fitters exist internally but are not exported yet. HRS microdata are not included.
+
 ## What is included
 
 - Runnable R / Stan / JAGS / LaTeX **source scripts** only

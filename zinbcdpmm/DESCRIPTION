@@ -1,0 +1,27 @@
+Package: zinbcdpmm
+Title: Bayesian ZINB-Ordinal Joint Model with CDPMM Random Effects
+Version: 0.1.0
+Authors@R: c(
+    person("Shuqing", "Liang", role = "aut"),
+    person("Jiang", "Du", role = c("aut", "cre"),
+           email = "dujiang84@163.com")
+    )
+Description: Fits a Bayesian joint model for longitudinal zero-inflated
+    negative binomial and ordinal outcomes with CDPMM random effects,
+    as in Liang and Du.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: false
+RoxygenNote: 7.3.0
+Depends: R (>= 4.1.0)
+Imports:
+    BayesLogit,
+    mvtnorm,
+    MCMCpack,
+    truncnorm,
+    loo,
+    coda,
+    stats
+Suggests:
+    testthat
+
