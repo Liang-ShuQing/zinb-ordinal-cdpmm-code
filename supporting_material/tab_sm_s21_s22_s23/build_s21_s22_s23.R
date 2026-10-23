@@ -2,7 +2,8 @@
 # Reads downloaded HPC CSVs, emits .tex table fragments to sibling results folder.
 # Fragments are inlined into supporting_material.tex (project convention: no \input).
 
-base <- "D:/Users/lenovo/Desktop/有序多分类-ZINB模型随机效应为CDPMM/hpc_jobs"
+args <- commandArgs(trailingOnly = TRUE)
+base <- if (length(args) >= 1L) args[[1]] else "hpc_jobs"
 out_dir <- file.path(dirname(getwd()), paste0(basename(getwd()), "_results"))
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
