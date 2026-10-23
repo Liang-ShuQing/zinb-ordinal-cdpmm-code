@@ -6,3 +6,5 @@
 .Rproj.user/
 *.pdf
 !fig_graphical_model/*.pdf
+__pycache__/
+*.pyc
