@@ -65,21 +65,21 @@ Labels match the current manuscript (figures and tables in order of appearance).
 | `fig:re_density_panel` | [main_paper/fig_re_density_panel](main_paper/fig_re_density_panel/) |
 | `fig:ppc_combined` | [main_paper/fig_ppc_combined](main_paper/fig_ppc_combined/) |
 | `fig:stress_surface` | [main_paper/fig_stress_surface](main_paper/fig_stress_surface/) |
-| `fig:hrs_assoc` | — (not included) |
+| `fig:hrs_assoc` | [main_paper/fig_hrs_assoc](main_paper/fig_hrs_assoc/) |
 | `fig:hrs_trace` | [main_paper/fig_hrs_trace](main_paper/fig_hrs_trace/) |
-| `fig:hrs_ppc` | — (not included) |
+| `fig:hrs_ppc` | [main_paper/fig_hrs_ppc](main_paper/fig_hrs_ppc/) |
 | `tab:sim_scen1_normal` | [main_paper/tab_sim_scen1_normal](main_paper/tab_sim_scen1_normal/) |
 | `tab:sim_scen2_normal` | [main_paper/tab_sim_scen2_normal](main_paper/tab_sim_scen2_normal/) |
-| `tab:sim_scen3_normal` | — (not included) |
+| `tab:sim_scen3_normal` | [main_paper/tab_sim_scen3_normal](main_paper/tab_sim_scen3_normal/) |
 | `tab:sim_scen1` | [main_paper/tab_sim_scen1](main_paper/tab_sim_scen1/) |
 | `tab:sim_main` | [main_paper/tab_sim_main](main_paper/tab_sim_main/) |
-| `tab:sim_scen3` | — (not included) |
-| `tab:sim_scen1_mvt` | — (not included) |
-| `tab:sim_scen2_mvt` | — (not included) |
-| `tab:sim_scen3_mvt` | — (not included) |
+| `tab:sim_scen3` | [main_paper/tab_sim_scen3](main_paper/tab_sim_scen3/) |
+| `tab:sim_scen1_mvt` | [main_paper/tab_sim_scen1_mvt](main_paper/tab_sim_scen1_mvt/) |
+| `tab:sim_scen2_mvt` | [main_paper/tab_sim_scen2_mvt](main_paper/tab_sim_scen2_mvt/) |
+| `tab:sim_scen3_mvt` | [main_paper/tab_sim_scen3_mvt](main_paper/tab_sim_scen3_mvt/) |
 | `tab:weak_rho` | [supporting_material/tab_sm_s21_s22_s23](supporting_material/tab_sm_s21_s22_s23/) |
 | `tab:zi_severity` | [supporting_material/tab_sm_s21_s22_s23](supporting_material/tab_sm_s21_s22_s23/) |
-| `tab:zip_misspec` | — (not included) |
+| `tab:zip_misspec` | [main_paper/tab_zip_misspec](main_paper/tab_zip_misspec/) |
 | `tab:hrs_desc` | [main_paper/tab_baseline](main_paper/tab_baseline/) |
 | `tab:hrs_posterior` | [main_paper/tab_hrs_posterior](main_paper/tab_hrs_posterior/) |
 
@@ -91,13 +91,13 @@ Labels match the current Supporting Material (`tab:cdpmm_vs_gauss_*` = Tables S1
 |------------|-------------------|
 | `tab:cdpmm_vs_gauss_normal_s1` | [supporting_material/tab_cdpmm_vs_gauss_normal_s1](supporting_material/tab_cdpmm_vs_gauss_normal_s1/) |
 | `tab:cdpmm_vs_gauss_normal_s2` | [supporting_material/tab_cdpmm_vs_gauss_normal_s2](supporting_material/tab_cdpmm_vs_gauss_normal_s2/) |
-| `tab:cdpmm_vs_gauss_normal_s3` | — (not included) |
+| `tab:cdpmm_vs_gauss_normal_s3` | [supporting_material/tab_cdpmm_vs_gauss_normal_s3](supporting_material/tab_cdpmm_vs_gauss_normal_s3/) |
 | `tab:cdpmm_vs_gauss_mixture_s1` | [supporting_material/tab_cdpmm_vs_gauss_mixture_s1](supporting_material/tab_cdpmm_vs_gauss_mixture_s1/) |
 | `tab:cdpmm_vs_gauss_mixture_s2` | [supporting_material/tab_cdpmm_vs_gauss_mixture_s2](supporting_material/tab_cdpmm_vs_gauss_mixture_s2/) |
-| `tab:cdpmm_vs_gauss_mixture_s3` | — (not included) |
-| `tab:cdpmm_vs_gauss_mvt_s1` | — (not included) |
-| `tab:cdpmm_vs_gauss_mvt_s2` | — (not included) |
-| `tab:cdpmm_vs_gauss_mvt_s3` | — (not included) |
+| `tab:cdpmm_vs_gauss_mixture_s3` | [supporting_material/tab_cdpmm_vs_gauss_mixture_s3](supporting_material/tab_cdpmm_vs_gauss_mixture_s3/) |
+| `tab:cdpmm_vs_gauss_mvt_s1` | [supporting_material/tab_cdpmm_vs_gauss_mvt_s1](supporting_material/tab_cdpmm_vs_gauss_mvt_s1/) |
+| `tab:cdpmm_vs_gauss_mvt_s2` | [supporting_material/tab_cdpmm_vs_gauss_mvt_s2](supporting_material/tab_cdpmm_vs_gauss_mvt_s2/) |
+| `tab:cdpmm_vs_gauss_mvt_s3` | [supporting_material/tab_cdpmm_vs_gauss_mvt_s3](supporting_material/tab_cdpmm_vs_gauss_mvt_s3/) |
 | `tab:gibbs_jags_normal_s1` | [supporting_material/tab_gibbs_jags_normal_s1](supporting_material/tab_gibbs_jags_normal_s1/) |
 | `tab:gibbs_jags_normal_s2` | [supporting_material/tab_gibbs_jags_normal_s2](supporting_material/tab_gibbs_jags_normal_s2/) |
 | `tab:gibbs_jags_mixture_s1` | [supporting_material/tab_gibbs_jags_mixture_s1](supporting_material/tab_gibbs_jags_mixture_s1/) |

@@ -1,7 +1,8 @@
 ############################################################
 # Build Scenario 1/2 LaTeX tables from HPC outputs
-# Default layout: N=200 & N=400 under ROOT (scen*_n200[_normal], ...)
-# Optional 3rd arg ROOT_EXTRA: if it contains scen*_n300*, also append N=300
+# Columns: Bias, RMSE, CP, Avg.L (avg 95% CI length); plus variance ratio
+# Header uses \\AvgLhdr (defined in paper.tex / supporting_material.tex)
+# Default layout: N=200 & N=400 under ROOT (s*_n{200,400}_* or scen*)
 ############################################################
 args <- commandArgs(trailingOnly = TRUE)
 ROOT <- if (length(args) >= 1L) args[[1]] else {
@@ -11,45 +12,74 @@ OUT_TEX <- if (length(args) >= 2L) args[[2]] else {
   file.path(dirname(normalizePath(".")), "paper", "sim_tables_generated.tex")
 }
 
+normalize_param_name <- function(nm) {
+  if (nm == "Sigma[1,1]") return("Sigma11")
+  if (nm == "Sigma[2,2]") return("Sigma22")
+  if (nm == "Sigma[3,3]") return("Sigma33")
+  if (nm == "rho12") return("rho1")
+  if (nm == "rho13") return("rho2")
+  if (nm == "rho23") return("rho3")
+  nm
+}
+
+# Parse printed summary rows: name true bias rmse ci_lo ci_hi cp
+parse_rows <- function(chunk) {
+  out <- list()
+  for (ln in chunk) {
+    ln <- trimws(ln)
+    if (!grepl("^(alpha|beta|gamma|r|sigma2|Sigma\\[|rho)", ln)) next
+    parts <- strsplit(ln, "\\s+")[[1]]
+    if (length(parts) < 7) next
+    nm <- normalize_param_name(parts[1])
+    vals <- suppressWarnings(as.numeric(parts[2:7]))
+    if (anyNA(vals)) next
+    out[[length(out) + 1L]] <- data.frame(
+      Parameter = nm,
+      True_Value = vals[1],
+      Bias = vals[2],
+      RMSE = vals[3],
+      AL = vals[5] - vals[4],
+      CP = vals[6],
+      stringsAsFactors = FALSE
+    )
+  }
+  if (!length(out)) return(NULL)
+  tab <- do.call(rbind, out)
+  tab[!duplicated(tab$Parameter, fromLast = TRUE), , drop = FALSE]
+}
+
 parse_slurm_blocks <- function(path) {
   lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
-  parse_rows <- function(chunk) {
-    out <- list()
-    for (ln in chunk) {
-      if (!grepl("^(alpha|beta|gamma|r|sigma2)", trimws(ln))) next
-      parts <- strsplit(trimws(ln), "\\s+")[[1]]
-      if (length(parts) < 7) next
-      nm <- parts[1]
-      vals <- suppressWarnings(as.numeric(parts[2:7]))
-      if (anyNA(vals)) next
-      out[[length(out) + 1L]] <- data.frame(
-        Parameter = nm,
-        True_Value = vals[1], Bias = vals[2], RMSE = vals[3], CP = vals[6],
-        stringsAsFactors = FALSE
-      )
-    }
-    if (!length(out)) return(NULL)
-    do.call(rbind, out)
+  # Section anchors (Chinese headers from prog1)
+  i_joint <- grep("参数估计汇总（联合模型）", lines)[1]
+  i_re <- grep("随机效应方差汇总（联合模型）", lines)[1]
+  i_ord <- grep("参数估计汇总（有序单独模型）", lines)[1]
+  i_zinb <- grep("参数估计汇总（ZINB单独模型）", lines)[1]
+  i_mc <- grep("模型比较汇总", lines)[1]
+  if (anyNA(c(i_joint, i_ord, i_zinb))) {
+    return(list(joint = NULL, ord = NULL, zinb = NULL))
   }
-  # Separate-model block starts at the 2nd gamma1 (after joint gamma1)
-  zg <- grep("^\\s*gamma1\\s+", lines)
-  if (length(zg) < 2L) return(list(ord = NULL, zinb = NULL))
-  mc <- grep("DIC_Mean|WAIC_Mean|模型比较", lines)
-  end <- if (length(mc)) mc[1] - 1L else length(lines)
-  all_sep <- parse_rows(lines[zg[2]:end])
-  if (is.null(all_sep)) return(list(ord = NULL, zinb = NULL))
-  # Keep last occurrence of each name (joint rows may appear earlier in chunk)
-  all_sep <- all_sep[!duplicated(all_sep$Parameter, fromLast = TRUE), , drop = FALSE]
-  ord_nm <- c(grep("^gamma", all_sep$Parameter, value = TRUE), "sigma2_b3")
-  zinb_nm <- c(
-    grep("^alpha", all_sep$Parameter, value = TRUE),
-    grep("^beta", all_sep$Parameter, value = TRUE),
-    "r", "sigma2_b1", "sigma2_b2"
-  )
-  list(
-    ord = all_sep[all_sep$Parameter %in% ord_nm, , drop = FALSE],
-    zinb = all_sep[all_sep$Parameter %in% zinb_nm, , drop = FALSE]
-  )
+  end_fe <- if (!is.na(i_re)) i_re - 1L else i_ord - 1L
+  end_re <- i_ord - 1L
+  end_ord <- i_zinb - 1L
+  end_zinb <- if (!is.na(i_mc)) i_mc - 1L else length(lines)
+
+  joint_fe <- parse_rows(lines[i_joint:end_fe])
+  joint_re <- if (!is.na(i_re)) parse_rows(lines[i_re:end_re]) else NULL
+  joint <- if (is.null(joint_re)) joint_fe else rbind(joint_fe, joint_re)
+
+  ord <- parse_rows(lines[i_ord:end_ord])
+  zinb <- parse_rows(lines[i_zinb:end_zinb])
+  if (!is.null(ord)) {
+    keep <- grepl("^gamma", ord$Parameter) | ord$Parameter == "sigma2_b3"
+    ord <- ord[keep, , drop = FALSE]
+  }
+  if (!is.null(zinb)) {
+    keep <- grepl("^(alpha|beta)", zinb$Parameter) |
+      zinb$Parameter %in% c("r", "sigma2_b1", "sigma2_b2")
+    zinb <- zinb[keep, , drop = FALSE]
+  }
+  list(joint = joint, ord = ord, zinb = zinb)
 }
 
 BIAS_POOR <- 0.10
@@ -71,8 +101,6 @@ maybe_bold <- function(s, bold) {
 bias_poor <- function(x) is.finite(x) && abs(x) >= BIAS_POOR
 cp_poor <- function(x) is.finite(x) && x < CP_POOR
 fmt_true <- function(x, d = 3) {
-  # d=1 (normal tables): always one decimal, e.g. 0.3, -0.8, 1.0, 2.0
-  # d>=2: integers without trailing zeros; others use d decimals
   if (d <= 1L) return(fmt_signed(x, 1L))
   if (abs(x - round(x)) < 1e-8) sprintf("%g", round(x)) else fmt_signed(x, d)
 }
@@ -95,15 +123,13 @@ tex_param <- function(nm) {
 }
 
 build_block <- function(joint, vr, sep_zinb, sep_ord, n_label,
-                        true_digits = 3, true_digits_sigma_rho = NULL) {
-  # Row order follows whatever fixed effects appear in the joint CSV
-  # (Scenario 1: alpha1-5, beta1-6, gamma1-4; Scenario 2: 4/5/3 after dropping I(U>0)).
+                        true_digits = 3, true_digits_sigma_rho = NULL,
+                        joint_al = NULL) {
   fe_rows <- c(
     grep("^alpha", joint$Parameter, value = TRUE),
     grep("^beta", joint$Parameter, value = TRUE),
     grep("^gamma", joint$Parameter, value = TRUE)
   )
-  # Preserve numeric order alpha1, alpha2, ...
   sort_fe <- function(nms, prefix) {
     idx <- as.integer(sub(prefix, "", nms))
     nms[order(idx)]
@@ -119,30 +145,26 @@ build_block <- function(joint, vr, sep_zinb, sep_ord, n_label,
     "Sigma11", "Sigma22", "Sigma33",
     "rho1", "rho2", "rho3"
   )
-  # If set, Sigma/rho True Values use this precision; others use true_digits
   if (is.null(true_digits_sigma_rho)) true_digits_sigma_rho <- true_digits
   true_d_for <- function(nm) {
     if (grepl("^(Sigma|rho)", nm)) true_digits_sigma_rho else true_digits
   }
-  vr_map <- c(
-    setNames(vr$Variance_Ratio_Mean, vr$Parameter),
-    Sigma11 = vr$Variance_Ratio_Mean[vr$Parameter == "sigma2_b1"],
-    Sigma22 = vr$Variance_Ratio_Mean[vr$Parameter == "sigma2_b2"],
-    Sigma33 = vr$Variance_Ratio_Mean[vr$Parameter == "sigma2_b3"]
-  )
-  # fix named lookup for Sigma
   vr_lookup <- function(nm) {
     if (nm == "Sigma11") nm2 <- "sigma2_b1"
     else if (nm == "Sigma22") nm2 <- "sigma2_b2"
     else if (nm == "Sigma33") nm2 <- "sigma2_b3"
-    else if (nm == "rho1") return(NA_real_)
-    else if (nm == "rho2") return(NA_real_)
-    else if (nm == "rho3") return(NA_real_)
+    else if (nm %in% c("rho1", "rho2", "rho3")) return(NA_real_)
     else nm2 <- nm
     i <- match(nm2, vr$Parameter)
     if (is.na(i)) NA_real_ else vr$Variance_Ratio_Mean[i]
   }
+  al_joint_lookup <- function(nm) {
+    if (is.null(joint_al)) return(NA_real_)
+    i <- match(nm, joint_al$Parameter)
+    if (is.na(i)) NA_real_ else joint_al$AL[i]
+  }
   sep_lookup <- function(nm) {
+    # returns Bias, RMSE, AL, CP
     if (grepl("^gamma", nm) || nm == "Sigma33") {
       tab <- sep_ord
       key <- if (nm == "Sigma33") "sigma2_b3" else nm
@@ -150,16 +172,17 @@ build_block <- function(joint, vr, sep_zinb, sep_ord, n_label,
       tab <- sep_zinb
       key <- if (nm == "Sigma11") "sigma2_b1" else if (nm == "Sigma22") "sigma2_b2" else nm
     } else {
-      return(c(NA, NA, NA))
+      return(c(NA, NA, NA, NA))
     }
-    if (is.null(tab)) return(c(NA, NA, NA))
+    if (is.null(tab)) return(c(NA, NA, NA, NA))
     i <- match(key, tab$Parameter)
-    if (is.na(i)) return(c(NA, NA, NA))
-    c(tab$Bias[i], tab$RMSE[i], tab$CP[i])
+    if (is.na(i)) return(c(NA, NA, NA, NA))
+    al <- if ("AL" %in% names(tab)) tab$AL[i] else NA_real_
+    c(tab$Bias[i], tab$RMSE[i], al, tab$CP[i])
   }
 
   lines <- character()
-  lines <- c(lines, sprintf("\\multicolumn{9}{@{}l}{\\textbf{$N=%s$}} \\\\", n_label))
+  lines <- c(lines, sprintf("\\multicolumn{11}{@{}l}{\\textbf{$N=%s$}} \\\\", n_label))
   lines <- c(lines, "\\midrule")
   for (nm in rows) {
     j <- joint[joint$Parameter == nm, , drop = FALSE]
@@ -168,25 +191,31 @@ build_block <- function(joint, vr, sep_zinb, sep_ord, n_label,
     is_rho <- grepl("^rho", nm)
     td <- true_d_for(nm)
     jb <- j$Bias[1]; jrm <- j$RMSE[1]; jcp <- j$CP[1]
-    sb <- sep[1]; srm <- sep[2]; scp <- sep[3]
+    jal <- al_joint_lookup(nm)
+    # prefer AL from CSV if present
+    if ("AL" %in% names(j) && is.finite(j$AL[1])) jal <- j$AL[1]
+    sb <- sep[1]; srm <- sep[2]; sal <- sep[3]; scp <- sep[4]
     if (is_rho) {
       lines <- c(lines, sprintf(
-        "%s & %s & %s & %s & %s & --- & --- & --- & --- \\\\",
-        tex_param(nm), fmt_true(j$True_Value[1], td),
-        maybe_bold(fmt_signed(jb, 3), bias_poor(jb)),
-        fmt_num(jrm, 3),
-        maybe_bold(fmt_num(jcp, 3), cp_poor(jcp))
-      ))
-    } else {
-      lines <- c(lines, sprintf(
-        "%s & %s & %s & %s & %s & %s & %s & %s & %s \\\\",
+        "%s & %s & %s & %s & %s & %s & --- & --- & --- & --- & --- \\\\",
         tex_param(nm), fmt_true(j$True_Value[1], td),
         maybe_bold(fmt_signed(jb, 3), bias_poor(jb)),
         fmt_num(jrm, 3),
         maybe_bold(fmt_num(jcp, 3), cp_poor(jcp)),
+        fmt_num(jal, 3)
+      ))
+    } else {
+      lines <- c(lines, sprintf(
+        "%s & %s & %s & %s & %s & %s & %s & %s & %s & %s & %s \\\\",
+        tex_param(nm), fmt_true(j$True_Value[1], td),
+        maybe_bold(fmt_signed(jb, 3), bias_poor(jb)),
+        fmt_num(jrm, 3),
+        maybe_bold(fmt_num(jcp, 3), cp_poor(jcp)),
+        fmt_num(jal, 3),
         maybe_bold(fmt_signed(sb, 3), bias_poor(sb)),
         fmt_num(srm, 3),
         maybe_bold(fmt_num(scp, 3), cp_poor(scp)),
+        fmt_num(sal, 3),
         fmt_vr(vr_lookup(nm))
       ))
     }
@@ -200,54 +229,61 @@ load_setting <- function(dir) {
   sfiles <- list.files(dir, pattern = "^slurm-.*\\.out$", full.names = TRUE)
   stopifnot(length(jfiles) == 1L, length(vfiles) == 1L, length(sfiles) == 1L)
   joint <- read.csv(jfiles, stringsAsFactors = FALSE)
-  vr <- read.csv(vfiles, stringsAsFactors = FALSE)
+  # attach AL from slurm joint block if CSV lacks it
   sep <- parse_slurm_blocks(sfiles)
-  list(joint = joint, vr = vr, sep = sep, path = dir)
+  if (!is.null(sep$joint)) {
+    if (!("AL" %in% names(joint))) {
+      joint$AL <- NA_real_
+    }
+    for (i in seq_len(nrow(sep$joint))) {
+      nm <- sep$joint$Parameter[i]
+      j <- match(nm, joint$Parameter)
+      if (!is.na(j)) joint$AL[j] <- sep$joint$AL[i]
+    }
+  }
+  vr <- read.csv(vfiles, stringsAsFactors = FALSE)
+  list(joint = joint, vr = vr, sep = sep, joint_al = sep$joint, path = dir)
 }
 
-make_table <- function(settings, ns, scen, label, re_dist = c("mixture", "normal")) {
+make_table <- function(settings, ns, scen, label, re_dist = c("mixture", "normal", "mvt"),
+                       true_digits = NULL) {
   re_dist <- match.arg(re_dist)
   stopifnot(length(settings) == length(ns), length(settings) >= 1L)
-  # Short captions; parentheses note RE truth type
   bold_note <- paste0(
     " Bold Bias entries mark $|\\mathrm{Bias}|\\ge ", sprintf("%.2f", BIAS_POOR),
     "$; bold CP entries mark $\\mathrm{CP}<", sprintf("%.2f", CP_POOR),
-    "$ (RMSE is not bolded)."
+    "$ (RMSE and Avg.L are not bolded). Avg.L is the average length of the $95\\%$ credible interval."
   )
-  if (identical(re_dist, "normal")) {
-    cap <- if (scen == 1L) {
-      paste0(
-        "Parameter estimation results of Scenario~1 ($\\rho=0.5$; multivariate random effects).",
-        bold_note
-      )
-    } else {
-      paste0(
-        "Parameter estimation results of Scenario~2 (multivariate random effects).",
-        bold_note
-      )
+  scen_lab <- function(scen) {
+    if (scen == 1L) return("Scenario~1 ($\\rho=0.5$")
+    if (scen == 2L) return("Scenario~2")
+    if (scen == 3L) {
+      return("Scenario~3 (shared visit-level covariates with time and Gamma margins")
     }
-  } else {
-    cap <- if (scen == 1L) {
-      paste0(
-        "Parameter estimation results of Scenario~1 ($\\rho=0.5$; multivariate mixture random effects).",
-        bold_note
-      )
-    } else {
-      paste0(
-        "Parameter estimation results of Scenario~2 (multivariate mixture random effects).",
-        bold_note
-      )
-    }
+    stop("scen must be 1, 2, or 3")
   }
-  # True Value: 1 decimal for fixed effects / r.
-  # Sigma and rho: 1 decimal for normal; 3 decimals for mixture (approx. truths).
-  true_digits <- 1L
-  true_sr <- if (identical(re_dist, "normal")) 1L else 3L
+  re_lab <- if (identical(re_dist, "normal")) {
+    "multivariate random effects"
+  } else if (identical(re_dist, "mvt")) {
+    "multivariate-$t$ random effects, $df=8$"
+  } else {
+    "multivariate mixture random effects"
+  }
+  # Close paren opened in scen_lab for Sc1/Sc3; Sc2 has no open paren.
+  if (scen %in% c(1L, 3L)) {
+    cap <- paste0("Parameter estimation results of ", scen_lab(scen), "; ", re_lab, ").", bold_note)
+  } else {
+    cap <- paste0("Parameter estimation results of ", scen_lab(scen), " (", re_lab, ").", bold_note)
+  }
+  if (is.null(true_digits)) true_digits <- if (scen == 3L) 2L else 1L
+  true_sr <- if (identical(re_dist, "mixture")) 3L else 1L
   bodies <- list()
   for (i in seq_along(settings)) {
     s <- settings[[i]]
-    bodies[[i]] <- build_block(s$joint, s$vr, s$sep$zinb, s$sep$ord, as.character(ns[i]),
-                               true_digits, true_sr)
+    bodies[[i]] <- build_block(
+      s$joint, s$vr, s$sep$zinb, s$sep$ord, as.character(ns[i]),
+      true_digits, true_sr, joint_al = s$joint_al
+    )
   }
   body_lines <- bodies[[1]]
   if (length(bodies) >= 2L) {
@@ -262,12 +298,12 @@ make_table <- function(settings, ns, scen, label, re_dist = c("mixture", "normal
     sprintf("\\label{%s}", label),
     "\\begin{adjustbox}{max width=\\textwidth,center}",
     "\\scriptsize",
-    "\\setlength{\\tabcolsep}{3.5pt}",
-    "\\begin{tabular}{lcccccccc}",
+    "\\setlength{\\tabcolsep}{2.8pt}",
+    "\\begin{tabular}{lcccccccccc}",
     "\\toprule",
-    " & & \\multicolumn{3}{c}{\\textbf{Joint Model}} & \\multicolumn{3}{c}{\\textbf{Separate Models}} & \\textbf{Variance Ratio} \\\\",
-    "\\cmidrule(lr){3-5}\\cmidrule(lr){6-8}",
-    "\\textbf{Parameter} & \\textbf{True Value} & Bias & RMSE & CP & Bias & RMSE & CP & \\textbf{(Gain)} \\\\",
+    " & & \\multicolumn{4}{c}{\\textbf{Joint Model}} & \\multicolumn{4}{c}{\\textbf{Separate Models}} & \\textbf{Variance Ratio} \\\\",
+    "\\cmidrule(lr){3-6}\\cmidrule(lr){7-10}",
+    "\\textbf{Parameter} & \\textbf{True Value} & Bias & RMSE & CP & \\AvgLhdr & Bias & RMSE & CP & \\AvgLhdr & \\textbf{(Gain)} \\\\",
     "\\midrule",
     body_lines,
     "\\bottomrule",
@@ -278,7 +314,6 @@ make_table <- function(settings, ns, scen, label, re_dist = c("mixture", "normal
   )
 }
 
-# Detect available N folders under ROOT (prefer 200+400; fall back to 100+200[+300])
 has_dir <- function(nm) dir.exists(file.path(ROOT, nm))
 use_tab14 <- has_dir("s1_n200_normal") && has_dir("s1_n400_normal") &&
   has_dir("s1_n200_mixture") && has_dir("s1_n400_mixture")
@@ -333,12 +368,14 @@ if (use_tab14) {
   stop("ROOT must contain tab14 (s*_n{200,400}_*) or scen*_n200+n400 or scen*_n100+n200 folders: ", ROOT)
 }
 
-# sanity
 cat("Mode N=", paste(ns_vec, collapse = ","), "\n")
 cat("Parsed sep zinb rows mix s2 Na:", NROW(s2_a_m$sep$zinb),
-    " ord:", NROW(s2_a_m$sep$ord), "\n")
-cat("Parsed sep zinb rows norm s1 Nb:", NROW(s1_b_n$sep$zinb),
-    " ord:", NROW(s1_b_n$sep$ord), "\n")
+    " ord:", NROW(s2_a_m$sep$ord),
+    " joint AL rows:", NROW(s2_a_m$joint_al), "\n")
+cat("Sample joint AL alpha1:", {
+  j <- s1_a_n$joint
+  if ("AL" %in% names(j)) j$AL[j$Parameter == "alpha1"][1] else NA
+}, "\n")
 
 pack2 <- function(sa, sb, sc = NULL) {
   if (is.null(sc)) list(sa, sb) else list(sa, sb, sc)
@@ -350,7 +387,8 @@ s2_c_m <- if (exists("s2_c_m")) s2_c_m else NULL
 
 tex <- c(
   "% Auto-generated by build_sim_tables.R — do not edit by hand",
-  "% Bolds Bias if |Bias|>=0.10 and CP if CP<0.90; RMSE never bolded.",
+  "% Bolds Bias if |Bias|>=0.10 and CP if CP<0.90; RMSE/Avg.L never bolded.",
+  "% Columns: Bias, RMSE, CP, Avg.L (\\AvgLhdr). Avg.L = average 95% CI length.",
   "% --- Normal random-effects truth ---",
   make_table(pack2(s1_a_n, s1_b_n, s1_c_n), ns_vec, 1L, "tab:sim_scen1_normal", "normal"),
   make_table(pack2(s2_a_n, s2_b_n, s2_c_n), ns_vec, 2L, "tab:sim_scen2_normal", "normal"),
@@ -362,7 +400,6 @@ dir.create(dirname(OUT_TEX), recursive = TRUE, showWarnings = FALSE)
 writeLines(tex, OUT_TEX, useBytes = TRUE)
 cat("Wrote", OUT_TEX, "\n")
 
-# summary stats for prose
 avg_cp <- function(j) {
   keep <- !grepl("^delta", j$Parameter)
   mean(j$CP[keep], na.rm = TRUE)
@@ -375,10 +412,6 @@ avg_vr <- function(vr) mean(vr$Variance_Ratio_TrimMean, na.rm = TRUE)
 report_one <- function(tag, nlab, s) {
   cat(sprintf("%s N%s: CP=%.3f RMSE=%.3f VRtrim=%.3f\n",
               tag, nlab, avg_cp(s$joint), avg_rmse(s$joint), avg_vr(s$vr)))
-  g1 <- s$joint[s$joint$Parameter == "gamma1", , drop = FALSE]
-  if (nrow(g1)) {
-    cat(sprintf("  gamma1: Bias=%+.4f CP=%.3f\n", g1$Bias[1], g1$CP[1]))
-  }
 }
 report_one("Normal S1", n_labs[1], s1_a_n)
 report_one("Normal S1", n_labs[2], s1_b_n)
@@ -392,4 +425,3 @@ if (!is.null(s1_c_m)) report_one("Mixture S1", n_labs[3], s1_c_m)
 report_one("Mixture S2", n_labs[1], s2_a_m)
 report_one("Mixture S2", n_labs[2], s2_b_m)
 if (!is.null(s2_c_m)) report_one("Mixture S2", n_labs[3], s2_c_m)
-
