@@ -3,7 +3,8 @@
 # Fragments are inlined into supporting_material.tex (project convention: no \input).
 # Responds to SIM Reviewer 2, Major 2 (last bullet: small-N / high-dimensional covariates).
 
-base <- "D:/Users/lenovo/Desktop/有序多分类-ZINB模型随机效应为CDPMM/论文+支撑材料/supporting_material/stress_results"
+args <- commandArgs(trailingOnly = TRUE)
+base <- if (length(args) >= 1L) args[[1]] else "stress_results"
 out_dir <- file.path(dirname(getwd()), paste0(basename(getwd()), "_results"))
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
